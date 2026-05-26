@@ -25,6 +25,11 @@ public:
     set& operator=(const set&) = default;
     set& operator=(set&&) noexcept = default;
 
+    template <class It>
+    set(It first, It last) {
+        for (; first != last; ++first) insert(*first);
+    }
+
     iterator begin() noexcept { return _items.begin(); }
     iterator end() noexcept { return _items.end(); }
     const_iterator begin() const noexcept { return _items.begin(); }

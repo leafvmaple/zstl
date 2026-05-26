@@ -171,24 +171,36 @@ private:
         }
     }
 
+    // Whether `Fn` fits in the small-object buffer. Each lambda below redeclares
+    // this as its own constexpr so it doesn't need to capture the outer one —
+    // captureless lambdas are required for VTable's plain function-pointer slots.
+    template <class Fn>
+    static constexpr bool _fits_small() {
+        return sizeof(Fn) <= kBufBytes && alignof(Fn) <= alignof(Storage);
+    }
+
     template <class Fn>
     static constexpr VTable make_vtable() {
         VTable v{};
-        constexpr bool small = sizeof(Fn) <= kBufBytes && alignof(Fn) <= alignof(Storage);
-        v.heap = !small;
+        v.heap = !_fits_small<Fn>();
         v.invoke = [](void* self, Args&&... args) -> R {
             Storage* s = static_cast<Storage*>(self);
-            Fn* p = small ? reinterpret_cast<Fn*>(&s->small) : static_cast<Fn*>(s->heap);
+            Fn* p;
+            if constexpr (_fits_small<Fn>()) {
+                p = reinterpret_cast<Fn*>(&s->small);
+            } else {
+                p = static_cast<Fn*>(s->heap);
+            }
             return (*p)(sys::forward<Args>(args)...);
         };
         v.copy = [](void* dst, const void* src) {
             Storage* d = static_cast<Storage*>(dst);
             const Storage* s = static_cast<const Storage*>(src);
-            const Fn* sp = small ? reinterpret_cast<const Fn*>(&s->small)
-                                 : static_cast<const Fn*>(s->heap);
-            if constexpr (small) {
+            if constexpr (_fits_small<Fn>()) {
+                const Fn* sp = reinterpret_cast<const Fn*>(&s->small);
                 ::new (static_cast<void*>(&d->small)) Fn(*sp);
             } else {
+                const Fn* sp = static_cast<const Fn*>(s->heap);
                 d->heap = ::operator new(sizeof(Fn));
                 ::new (d->heap) Fn(*sp);
             }
@@ -196,7 +208,7 @@ private:
         v.move = [](void* dst, void* src) {
             Storage* d = static_cast<Storage*>(dst);
             Storage* s = static_cast<Storage*>(src);
-            if constexpr (small) {
+            if constexpr (_fits_small<Fn>()) {
                 Fn* sp = reinterpret_cast<Fn*>(&s->small);
                 ::new (static_cast<void*>(&d->small)) Fn(sys::move(*sp));
                 sp->~Fn();
@@ -207,7 +219,7 @@ private:
         };
         v.destroy = [](void* self) {
             Storage* s = static_cast<Storage*>(self);
-            if constexpr (small) {
+            if constexpr (_fits_small<Fn>()) {
                 reinterpret_cast<Fn*>(&s->small)->~Fn();
             } else if (s->heap) {
                 static_cast<Fn*>(s->heap)->~Fn();

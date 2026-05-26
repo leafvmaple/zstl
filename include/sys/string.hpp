@@ -4,6 +4,7 @@
 #include "sys/cstddef.hpp"
 #include "sys/functional.hpp"
 #include "sys/new.hpp"
+#include "sys/type_traits.hpp"
 #include "sys/utility.hpp"
 
 namespace sys {
@@ -13,6 +14,9 @@ inline size_t cstr_len_char(const char* s) noexcept {
     size_t n = 0; while (s && s[n]) ++n; return n;
 }
 inline size_t cstr_len_wchar(const wchar_t* s) noexcept {
+    size_t n = 0; while (s && s[n]) ++n; return n;
+}
+inline size_t cstr_len_char32(const char32_t* s) noexcept {
     size_t n = 0; while (s && s[n]) ++n; return n;
 }
 }  // namespace detail
@@ -33,6 +37,20 @@ public:
     basic_string(size_t n, CharT c) { _init_filled(n, c); }
     basic_string(const basic_string& o) { _init_from(o.data(), o.size()); }
     basic_string(basic_string&& o) noexcept { _move_from(o); }
+
+    // Iterator-pair constructor. Accepts any non-integral iterator and copies
+    // the range, converting element-wise into `CharT` (so callers can build a
+    // string from `vector<unsigned char>::iterator` etc.).
+    template <class It, class = enable_if_t<!is_integral<It>::value>>
+    basic_string(It first, It last) {
+        const size_t n = static_cast<size_t>(last - first);
+        _cap = n + 1;
+        _data = static_cast<CharT*>(::operator new(_cap * sizeof(CharT)));
+        size_t i = 0;
+        for (; first != last; ++first, ++i) _data[i] = static_cast<CharT>(*first);
+        _data[n] = CharT(0);
+        _size = n;
+    }
 
     ~basic_string() { _free(); }
 
@@ -138,6 +156,25 @@ public:
         return npos;
     }
 
+    size_t find(const CharT* s, size_t from = 0) const noexcept {
+        return find(s, from, _cstr_len(s));
+    }
+
+    size_t find(const CharT* s, size_t from, size_t n) const noexcept {
+        if (n == 0) return from <= _size ? from : npos;
+        if (n > _size || from > _size - n) return npos;
+        for (size_t i = from; i + n <= _size; ++i) {
+            size_t j = 0;
+            while (j < n && _data[i + j] == s[j]) ++j;
+            if (j == n) return i;
+        }
+        return npos;
+    }
+
+    size_t find(const basic_string& o, size_t from = 0) const noexcept {
+        return find(o.data(), from, o.size());
+    }
+
     basic_string substr(size_t pos, size_t n = npos) const {
         if (pos > _size) pos = _size;
         size_t avail = _size - pos;
@@ -151,8 +188,13 @@ private:
     size_t _cap{0};  // includes room for null terminator
 
     static size_t _cstr_len(const CharT* s) noexcept {
-        if constexpr (sizeof(CharT) == 1) return detail::cstr_len_char(reinterpret_cast<const char*>(s));
-        else return detail::cstr_len_wchar(reinterpret_cast<const wchar_t*>(s));
+        if constexpr (sizeof(CharT) == 1) {
+            return detail::cstr_len_char(reinterpret_cast<const char*>(s));
+        } else if constexpr (sizeof(CharT) == sizeof(wchar_t)) {
+            return detail::cstr_len_wchar(reinterpret_cast<const wchar_t*>(s));
+        } else {
+            return detail::cstr_len_char32(reinterpret_cast<const char32_t*>(s));
+        }
     }
 
     void _set_empty() {
@@ -228,6 +270,7 @@ inline basic_string<CharT> operator+(const CharT* a, const basic_string<CharT>& 
 
 using string = basic_string<char>;
 using wstring = basic_string<wchar_t>;
+using u32string = basic_string<char32_t>;
 
 // hash<string>
 template <>

@@ -4,6 +4,7 @@
 #include "sys/cstddef.hpp"
 #include "sys/initializer_list.hpp"
 #include "sys/new.hpp"
+#include "sys/type_traits.hpp"
 #include "sys/utility.hpp"
 
 namespace sys {
@@ -21,7 +22,7 @@ public:
     vector(size_t n, const T& v) : vector() { assign(n, v); }
     vector(initializer_list<T> il) : vector() { reserve(il.size()); for (const auto& v : il) push_back(v); }
 
-    template <class It>
+    template <class It, class = enable_if_t<!is_integral<It>::value>>
     vector(It first, It last) : vector() {
         reserve(static_cast<size_t>(last - first));
         for (; first != last; ++first) push_back(*first);
@@ -79,6 +80,36 @@ public:
     const_iterator cbegin() const noexcept { return _data; }
     const_iterator cend() const noexcept { return _data + _size; }
 
+    // Minimal reverse iterator: a thin wrapper around a forward pointer that
+    // walks the range in reverse. Mirrors what std::reverse_iterator does for
+    // RandomAccessIterator but only exposes the operators zocos actually uses.
+    template <class It>
+    class reverse_iter {
+    public:
+        using value_type = T;
+        explicit reverse_iter(It p) noexcept : _p(p) {}
+        auto& operator*() const noexcept { return *(_p - 1); }
+        auto* operator->() const noexcept { return _p - 1; }
+        reverse_iter& operator++() noexcept { --_p; return *this; }
+        reverse_iter operator++(int) noexcept { reverse_iter t(*this); --_p; return t; }
+        reverse_iter& operator--() noexcept { ++_p; return *this; }
+        bool operator==(const reverse_iter& o) const noexcept { return _p == o._p; }
+        bool operator!=(const reverse_iter& o) const noexcept { return _p != o._p; }
+        It base() const noexcept { return _p; }
+    private:
+        It _p;
+    };
+
+    using reverse_iterator = reverse_iter<iterator>;
+    using const_reverse_iterator = reverse_iter<const_iterator>;
+
+    reverse_iterator rbegin() noexcept { return reverse_iterator(_data + _size); }
+    reverse_iterator rend() noexcept { return reverse_iterator(_data); }
+    const_reverse_iterator rbegin() const noexcept { return const_reverse_iterator(_data + _size); }
+    const_reverse_iterator rend() const noexcept { return const_reverse_iterator(_data); }
+    const_reverse_iterator crbegin() const noexcept { return const_reverse_iterator(_data + _size); }
+    const_reverse_iterator crend() const noexcept { return const_reverse_iterator(_data); }
+
     void clear() noexcept { _destroy_all(); _size = 0; }
 
     void reserve(size_t n) {
@@ -113,7 +144,7 @@ public:
         for (size_t i = 0; i < n; ++i) ::new (_data + i) T(v);
         _size = n;
     }
-    template <class It>
+    template <class It, class = enable_if_t<!is_integral<It>::value>>
     void assign(It first, It last) {
         clear();
         reserve(static_cast<size_t>(last - first));

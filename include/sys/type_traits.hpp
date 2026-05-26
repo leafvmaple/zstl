@@ -70,5 +70,31 @@ template <class T> using decay_t = typename decay<T>::type;
 
 template <class T>
 typename remove_reference<T>::type&& declval_impl();  // never defined; declval-like
+template <class T>
+typename remove_reference<T>::type&& declval() noexcept;  // never defined; for SFINAE.
+
+namespace detail {
+template <class T> struct is_integral_base : false_type {};
+template <> struct is_integral_base<bool> : true_type {};
+template <> struct is_integral_base<char> : true_type {};
+template <> struct is_integral_base<signed char> : true_type {};
+template <> struct is_integral_base<unsigned char> : true_type {};
+template <> struct is_integral_base<wchar_t> : true_type {};
+template <> struct is_integral_base<char16_t> : true_type {};
+template <> struct is_integral_base<char32_t> : true_type {};
+template <> struct is_integral_base<short> : true_type {};
+template <> struct is_integral_base<unsigned short> : true_type {};
+template <> struct is_integral_base<int> : true_type {};
+template <> struct is_integral_base<unsigned int> : true_type {};
+template <> struct is_integral_base<long> : true_type {};
+template <> struct is_integral_base<unsigned long> : true_type {};
+template <> struct is_integral_base<long long> : true_type {};
+template <> struct is_integral_base<unsigned long long> : true_type {};
+}  // namespace detail
+
+template <class T>
+struct is_integral : detail::is_integral_base<remove_cv_t<T>> {};
+template <class T>
+inline constexpr bool is_integral_v = is_integral<T>::value;
 
 }  // namespace sys
