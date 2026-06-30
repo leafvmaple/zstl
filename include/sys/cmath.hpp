@@ -27,4 +27,7 @@ inline double floor(double x) noexcept { return ::floor(x); }
 inline float sqrt(float x) noexcept { return ::sqrtf(x); }
 inline double sqrt(double x) noexcept { return ::sqrt(x); }
 
+inline float pow(float base, float exp) noexcept { return ::powf(base, exp); }
+inline double pow(double base, double exp) noexcept { return ::pow(base, exp); }
+
 }  // namespace sys
