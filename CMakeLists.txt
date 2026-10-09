@@ -9,3 +9,15 @@ target_include_directories(zstl INTERFACE
 )
 
 target_compile_features(zstl INTERFACE cxx_std_17)
+
+option(ZSTL_BUILD_TESTS "Build zstl contract tests" OFF)
+if(ZSTL_BUILD_TESTS)
+  enable_testing()
+  add_executable(zstl_memory_test tests/memory_test.cpp)
+  target_link_libraries(zstl_memory_test PRIVATE zstl::zstl)
+  add_test(NAME zstl_memory COMMAND zstl_memory_test)
+  add_library(zstl_freestanding_test OBJECT tests/freestanding_test.cpp)
+  target_link_libraries(zstl_freestanding_test PRIVATE zstl::zstl)
+  target_compile_definitions(zstl_freestanding_test PRIVATE ZSTL_FREESTANDING)
+  target_compile_options(zstl_freestanding_test PRIVATE -ffreestanding -nostdinc -nostdinc++ -fno-exceptions -fno-rtti)
+endif()

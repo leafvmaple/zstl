@@ -1,12 +1,11 @@
 // sys/new.hpp — placement new + nothrow.
 //
-// Provides the placement form of operator new (a constexpr, non-allocating
-// overload), plus sys::nothrow_t / sys::nothrow so callers can write
+// Provides the non-allocating placement forms of operator new,
+// plus sys::nothrow_t / sys::nothrow so callers can write
 //   new (sys::nothrow) T(...).
 //
-// We do NOT redeclare the global allocating operator new here; this header is
-// freestanding-friendly. In hosted mode the system <new> already provides it
-// (and is harmless to include for placement new), so we include it for safety.
+// Freestanding mode declares allocating operations for the embedding runtime.
+// Hosted mode uses the system <new> and forwards sys::nothrow allocation to it.
 #pragma once
 
 #include "sys/cstddef.hpp"
@@ -32,11 +31,19 @@ inline constexpr nothrow_t nothrow{};
 
 }  // namespace sys
 
-// nothrow operator new — accepts sys::nothrow_t. In hosted mode std::nothrow_t
-// has the same shape and the host runtime provides the corresponding
-// operator new(size_t, std::nothrow_t&). We provide an overload taking
-// sys::nothrow_t that forwards.
-#if !defined(ZSTL_FREESTANDING)
+#if defined(ZSTL_FREESTANDING)
+// The embedding runtime defines allocating operations; no system headers needed.
+void* operator new(sys::size_t);
+void* operator new[](sys::size_t);
+void* operator new(sys::size_t, const sys::nothrow_t&) noexcept;
+void* operator new[](sys::size_t, const sys::nothrow_t&) noexcept;
+void operator delete(void*) noexcept;
+void operator delete[](void*) noexcept;
+void operator delete(void*, sys::size_t) noexcept;
+void operator delete[](void*, sys::size_t) noexcept;
+void operator delete(void*, const sys::nothrow_t&) noexcept;
+void operator delete[](void*, const sys::nothrow_t&) noexcept;
+#else
 inline void* operator new(sys::size_t n, const sys::nothrow_t&) noexcept {
     return ::operator new(n, std::nothrow);
 }

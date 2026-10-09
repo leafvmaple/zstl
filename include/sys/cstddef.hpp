@@ -1,12 +1,10 @@
 // sys/cstddef.hpp — minimal <cstddef> replacement.
 #pragma once
 
-#include <stddef.h>  // host-provided; freestanding C headers are always available.
-
 namespace sys {
 
-using ::size_t;
-using ::ptrdiff_t;
+using size_t = __SIZE_TYPE__;
+using ptrdiff_t = __PTRDIFF_TYPE__;
 using nullptr_t = decltype(nullptr);
 
 }  // namespace sys

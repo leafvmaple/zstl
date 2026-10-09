@@ -41,3 +41,25 @@ Not implemented (intentionally):
 - Headers under `include/sys/*.hpp`, no extension collision with C headers.
 - No exceptions are thrown; bad allocation triggers a trap (`__builtin_trap`
   / abort).
+
+## Freestanding integration
+
+Use the same `include` root and `ZSTL_FREESTANDING` definition for every consumer
+in one program. `sys/new.hpp` provides placement forms and allocation declarations;
+the embedding runtime implements ordinary and `sys::nothrow` allocation/deallocation.
+Ordinary allocation must fail fast on exhaustion; the nothrow form may return null.
+The size/integer type headers and freestanding initializer-list ABI do not depend
+on system headers. Hosted mode continues to use the host `<new>` and
+`<initializer_list>` adapters. Other hosted wrapper headers still require their
+corresponding runtime integration when used without the system include paths.
+
+`unique_ptr` preserves stateful deleters during moves and constrained conversions.
+Stateless non-final deleters use C++17 empty-base optimization. Single objects
+and unbounded arrays use their respective deletion forms; borrowing does not extend
+lifetime, and the `[[nodiscard]]` release operation transfers cleanup responsibility.
+This remains a minimal implementation: custom pointer typedefs and reference-type
+deleters are not supplied.
+
+Optional tests: configure with `-DZSTL_BUILD_TESTS=ON`, build and run CTest. The
+freestanding smoke target compiles memory, integer, array and vector/initializer-list
+headers with `-nostdinc -nostdinc++ -fno-exceptions -fno-rtti`.

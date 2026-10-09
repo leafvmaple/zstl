@@ -59,6 +59,13 @@ template <class T> struct remove_extent<T[]> { using type = T; };
 template <class T, decltype(sizeof(0)) N> struct remove_extent<T[N]> { using type = T; };
 template <class T> using remove_extent_t = typename remove_extent<T>::type;
 
+template <class T> struct is_empty : integral_constant<bool, __is_empty(T)> {};
+template <class T> struct is_final : integral_constant<bool, __is_final(T)> {};
+template <class T, class... Args>
+struct is_constructible : integral_constant<bool, __is_constructible(T, Args...)> {};
+template <class T, class U>
+struct is_assignable : integral_constant<bool, __is_assignable(T, U)> {};
+
 template <class T>
 struct decay {
 private:
@@ -68,10 +75,28 @@ public:
 };
 template <class T> using decay_t = typename decay<T>::type;
 
+template <class T> struct add_rvalue_reference { using type = T&&; };
+template <> struct add_rvalue_reference<void> { using type = void; };
+template <> struct add_rvalue_reference<const void> { using type = const void; };
+template <> struct add_rvalue_reference<volatile void> { using type = volatile void; };
+template <> struct add_rvalue_reference<const volatile void> { using type = const volatile void; };
+template <class T> using add_rvalue_reference_t = typename add_rvalue_reference<T>::type;
+
 template <class T>
-typename remove_reference<T>::type&& declval_impl();  // never defined; declval-like
+add_rvalue_reference_t<T> declval_impl();  // never defined; declval-like
 template <class T>
-typename remove_reference<T>::type&& declval() noexcept;  // never defined; for SFINAE.
+add_rvalue_reference_t<T> declval() noexcept;  // never defined; for SFINAE.
+
+namespace detail {
+template <class T> void accept_conversion(T);
+template <class From, class To>
+auto conversion_test(int) -> decltype(accept_conversion<To>(sys::declval<From>()), true_type{});
+template <class, class> auto conversion_test(...) -> false_type;
+}  // namespace detail
+
+template <class From, class To>
+struct is_convertible : conditional_t<is_same<remove_cv_t<From>, void>::value &&
+    is_same<remove_cv_t<To>, void>::value, true_type, decltype(detail::conversion_test<From, To>(0))> {};
 
 namespace detail {
 template <class T> struct is_integral_base : false_type {};
