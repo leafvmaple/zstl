@@ -2,6 +2,7 @@
 #pragma once
 
 #include "sys/cstddef.hpp"
+#include "sys/cstdlib.hpp"
 #include "sys/functional.hpp"
 #include "sys/new.hpp"
 #include "sys/type_traits.hpp"
@@ -93,7 +94,11 @@ public:
 
     void clear() noexcept { _size = 0; if (_data) _data[0] = CharT(0); }
 
-    void reserve(size_t n) { if (n > _cap) _grow_to(n); }
+    void reserve(size_t n) {
+        // _cap includes the terminator, while reserve counts usable characters.
+        if (n > npos / sizeof(CharT) - 1) sys::abort();
+        if (n >= _cap) _grow_to(n + 1);
+    }
 
     void resize(size_t n) { resize(n, CharT(0)); }
     void resize(size_t n, CharT c) {
@@ -107,13 +112,14 @@ public:
     }
 
     void push_back(CharT c) {
-        if (_size + 1 >= _cap) _grow_to(_cap == 0 ? 8 : _cap * 2);
+        reserve(_size + 1);
         _data[_size++] = c; _data[_size] = CharT(0);
     }
 
     basic_string& append(const CharT* s) { return append(s, _cstr_len(s)); }
     basic_string& append(const CharT* s, size_t n) {
-        reserve(_size + n + 1);
+        if (n > npos / sizeof(CharT) - 1 - _size) sys::abort();
+        reserve(_size + n);
         for (size_t i = 0; i < n; ++i) _data[_size + i] = s[i];
         _size += n;
         _data[_size] = CharT(0);
@@ -228,6 +234,9 @@ private:
 
     void _grow_to(size_t newcap) {
         if (newcap < 8) newcap = 8;
+        // Repeated small appends must not reallocate/copy the full string each time.
+        if (_cap <= npos / sizeof(CharT) / 2 && newcap < _cap * 2)
+            newcap = _cap * 2;
         CharT* nd = static_cast<CharT*>(::operator new(newcap * sizeof(CharT)));
         for (size_t i = 0; i < _size; ++i) nd[i] = _data[i];
         nd[_size] = CharT(0);

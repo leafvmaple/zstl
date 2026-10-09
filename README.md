@@ -4,8 +4,10 @@ Minimal C++ STL replacement under `namespace sys`, suitable for freestanding /
 OS-kernel use where the system `<vector>`, `<string>`, `<unordered_map>` etc.
 are not available.
 
-This library is header-only. It is consumed by [mini-cocos](https://github.com/leafvmaple/mini-cocos)
-through the `mstd` switcher header (`src/base/ZCStd.h`).
+This library is header-only and always freestanding: there is no hosted mode
+and no system STL header dependency. Consumers use the system STL when it is
+available, and select zstl when it is unavailable. [mini-cocos](https://github.com/leafvmaple/mini-cocos)
+makes that selection through `src/base/ZCStd.h`.
 
 ## Scope
 
@@ -16,7 +18,7 @@ Implemented (minimal, just enough for mini-cocos):
 - `sys/type_traits.hpp` - core type traits
 - `sys/utility.hpp`     - `move`, `forward`, `swap`, `exchange`, `pair`
 - `sys/new.hpp`         - placement new, `nothrow_t`, `nothrow`
-- `sys/initializer_list.hpp` - compiler-magic forwarder
+- `sys/initializer_list.hpp` - self-contained compiler ABI type
 - `sys/iterator.hpp`    - `begin`, `end`, `distance`
 - `sys/limits.hpp`      - `numeric_limits<T>` (integers + float)
 - `sys/algorithm.hpp`   - `min`, `max`, `clamp`, `sort`, `stable_sort`, `find`, `find_if`, `remove_if`, `for_each`, ...
@@ -27,6 +29,10 @@ Implemented (minimal, just enough for mini-cocos):
 - `sys/mutex.hpp`       - generic `lock_guard`, `adopt_lock` (runtime supplies locks)
 - `sys/cstring.hpp`     - C-string primitives and runtime byte operations
 - `sys/cstdarg.hpp`     - compiler variadic ABI, including `va_copy` and `va_end`
+- `sys/cassert.hpp`     - fail-fast assertions with an optional diagnostic hook
+- `sys/cstdlib.hpp`     - runtime allocation and integer conversion declarations
+- `sys/cmath.hpp`       - float/double math runtime declarations and overloads
+- `sys/cstdio.hpp`      - runtime output declarations and opaque stream handles
 - `sys/vector.hpp`      - `vector<T>`
 - `sys/string.hpp`      - `string` (and basic `wstring`)
 - `sys/unordered_map.hpp` - chaining hash map
@@ -48,14 +54,24 @@ Not implemented (intentionally):
 
 ## Freestanding integration
 
-Use the same `include` root and `ZSTL_FREESTANDING` definition for every consumer
-in one program. `sys/new.hpp` provides placement forms and allocation declarations;
+Use the `include` root; no mode-selection macro is required.
+Headers can compile with `-ffreestanding -nostdinc -nostdinc++`.
+`sys/new.hpp` provides placement forms and allocation declarations;
 the embedding runtime implements ordinary and `sys::nothrow` allocation/deallocation.
 Ordinary allocation must fail fast on exhaustion; the nothrow form may return null.
-The size/integer type headers and freestanding initializer-list ABI do not depend
-on system headers. Hosted mode continues to use the host `<new>` and
-`<initializer_list>` adapters. Other hosted wrapper headers still require their
-corresponding runtime integration when used without the system include paths.
+The size/integer types, initializer-list ABI, assertions and runtime declarations
+are self-contained. Math, output, allocation/conversion and byte-copy symbols
+are defined by the embedding runtime at link time. `sys/cstdarg.hpp` supports
+Clang/GCC and MSVC x64 variadic ABIs; initializer lists also follow the
+compiler's pointer/count or Microsoft begin/end layout.
+`ZSTL_FILE_TYPE` may name the platform's stream
+type before including `sys/cstdio.hpp`; otherwise an opaque type is declared.
+Consumer-specific adapters (such as STB hooks) belong to the consumer, not zstl.
+If the consumer already supplies the C runtime declarations, define
+`ZSTL_RUNTIME_DECLARATIONS_PROVIDED` after those declarations. This suppresses
+duplicate ABI declarations; it does not select a hosted STL implementation or
+include system headers. All consumers of the same program must use the same
+runtime declarations and stream type.
 
 `unique_ptr` preserves stateful deleters during moves and constrained conversions.
 Stateless non-final deleters use C++17 empty-base optimization. Single objects
@@ -88,4 +104,4 @@ requires the caller to already hold the lock. It does not implement OS schedulin
 interrupt masking, mutex backends or semaphores. In freestanding mode, `cstring`
 implements string/search operations without system headers. The embedding runtime
 still defines C ABI `memcpy`, `memmove`, `memset` and `memcmp`, including any
-architecture-specific fast paths. Hosted `cstring` remains a host adapter.
+architecture-specific fast paths.

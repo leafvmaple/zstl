@@ -3,8 +3,8 @@
 
 namespace sys {
 
-using size_t = __SIZE_TYPE__;
-using ptrdiff_t = __PTRDIFF_TYPE__;
+using size_t = decltype(sizeof(0));
+using ptrdiff_t = decltype(static_cast<char*>(nullptr) - static_cast<char*>(nullptr));
 using nullptr_t = decltype(nullptr);
 
 }  // namespace sys

@@ -91,7 +91,7 @@ add_rvalue_reference_t<T> declval_impl();  // never defined; declval-like
 template <class T>
 add_rvalue_reference_t<T> declval() noexcept;  // never defined; for SFINAE.
 
-#if __has_builtin(__is_trivially_destructible)
+#if defined(_MSC_VER) || defined(__clang__)
 template <class T>
 struct is_trivially_destructible : integral_constant<bool, __is_trivially_destructible(T)> {};
 #else

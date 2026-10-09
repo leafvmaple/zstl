@@ -1,35 +1,16 @@
 // sys/cstring.hpp — minimal <cstring> replacement.
 //
-// Hosted aliases, or self-contained string primitives plus runtime byte ABI.
+// Self-contained string primitives plus runtime byte ABI.
 #pragma once
 
-#if !defined(ZSTL_FREESTANDING)
-#include <string.h>
-
-namespace sys {
-
-using ::memcpy;
-using ::memmove;
-using ::memset;
-using ::memcmp;
-using ::memchr;
-using ::strlen;
-using ::strcmp;
-using ::strncmp;
-using ::strcpy;
-using ::strncpy;
-using ::strchr;
-using ::strrchr;
-using ::strstr;
-
-}  // namespace sys
-#else
 #include "sys/cstddef.hpp"
 // Compiler-generated copies also use these symbols. The kernel/runtime owns them.
+#if !defined(ZSTL_RUNTIME_DECLARATIONS_PROVIDED)
 extern "C" void* memcpy(void*, const void*, sys::size_t);
 extern "C" void* memmove(void*, const void*, sys::size_t);
 extern "C" void* memset(void*, int, sys::size_t);
 extern "C" int memcmp(const void*, const void*, sys::size_t);
+#endif
 
 namespace sys {
 using ::memcpy;
@@ -96,4 +77,3 @@ inline const void* memchr(const void* memory, int ch, size_t n) noexcept {
 }
 inline void* memchr(void* memory, int ch, size_t n) noexcept { return const_cast<void*>(sys::memchr(static_cast<const void*>(memory), ch, n)); }
 } // namespace sys
-#endif
