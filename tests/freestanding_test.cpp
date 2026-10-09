@@ -3,6 +3,10 @@
 #include <sys/memory.hpp>
 #include <sys/array.hpp>
 #include <sys/vector.hpp>
+#include <sys/cstdarg.hpp>
+#include <sys/cstring.hpp>
+#include <sys/mutex.hpp>
+#include <sys/iterator.hpp>
 
 static_assert(sizeof(sys::uint64_t) == 8);
 static_assert(sizeof(sys::size_t) == sizeof(void*));
@@ -17,3 +21,13 @@ int sum(sys::initializer_list<int> values) {
     return result;
 }
 int probe() { return sum({1, 2, 3}); }
+struct FreestandingLock { void lock(); void unlock(); };
+int probe_utilities(FreestandingLock& lock, char* buffer, int count, ...) {
+    sys::lock_guard guard(lock);
+    sys::va_list arguments;
+    va_start(arguments, count);
+    int result = count ? va_arg(arguments, int) : 0;
+    va_end(arguments);
+    sys::strcpy(buffer, "abc");
+    return result + sys::strlen(buffer);
+}

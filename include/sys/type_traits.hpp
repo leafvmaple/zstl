@@ -53,6 +53,10 @@ template <class T, decltype(sizeof(0)) N> struct is_array<T[N]> : true_type {};
 
 template <class T> struct is_pointer : false_type {};
 template <class T> struct is_pointer<T*> : true_type {};
+template <class T> struct is_pointer<T* const> : true_type {};
+template <class T> struct is_pointer<T* volatile> : true_type {};
+template <class T> struct is_pointer<T* const volatile> : true_type {};
+template <class T> inline constexpr bool is_pointer_v = is_pointer<T>::value;
 
 template <class T> struct remove_extent { using type = T; };
 template <class T> struct remove_extent<T[]> { using type = T; };
@@ -86,6 +90,27 @@ template <class T>
 add_rvalue_reference_t<T> declval_impl();  // never defined; declval-like
 template <class T>
 add_rvalue_reference_t<T> declval() noexcept;  // never defined; for SFINAE.
+
+#if __has_builtin(__is_trivially_destructible)
+template <class T>
+struct is_trivially_destructible : integral_constant<bool, __is_trivially_destructible(T)> {};
+#else
+namespace detail {
+template <class T>
+auto destructible_test(int) -> decltype(sys::declval<T&>().~T(), true_type{});
+template <class T> auto destructible_test(...) -> false_type;
+}
+template <class T>
+struct is_trivially_destructible : integral_constant<bool,
+    __has_trivial_destructor(T) && decltype(detail::destructible_test<T>(0))::value> {};
+template <class T> struct is_trivially_destructible<T&> : true_type {};
+template <class T> struct is_trivially_destructible<T&&> : true_type {};
+template <class T, decltype(sizeof(0)) N>
+struct is_trivially_destructible<T[N]> : is_trivially_destructible<T> {};
+template <class T> struct is_trivially_destructible<T[]> : false_type {};
+#endif
+template <class T>
+inline constexpr bool is_trivially_destructible_v = is_trivially_destructible<T>::value;
 
 namespace detail {
 template <class T> void accept_conversion(T);

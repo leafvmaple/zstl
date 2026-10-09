@@ -19,6 +19,11 @@ constexpr T* begin(T (&a)[N]) noexcept { return a; }
 template <class T, size_t N>
 constexpr T* end(T (&a)[N]) noexcept { return a + N; }
 
+template <class C>
+constexpr auto size(const C& c) noexcept(noexcept(c.size())) -> decltype(c.size()) { return c.size(); }
+template <class T, size_t N>
+constexpr size_t size(const T (&)[N]) noexcept { return N; }
+
 // Random-access distance only; sufficient for vector/string/array.
 template <class It>
 constexpr auto distance(It first, It last) -> decltype(last - first) {

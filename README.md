@@ -23,6 +23,10 @@ Implemented (minimal, just enough for mini-cocos):
 - `sys/functional.hpp`  - `function<R(Args...)>`, `hash`, `less`, `equal_to`
 - `sys/memory.hpp`      - `unique_ptr`, `make_unique`, `default_delete`
 - `sys/array.hpp`       - `array<T, N>`
+- `sys/inplace_vector.hpp` - C++20 fixed-capacity inline sequence, C++26 core subset
+- `sys/mutex.hpp`       - generic `lock_guard`, `adopt_lock` (runtime supplies locks)
+- `sys/cstring.hpp`     - C-string primitives and runtime byte operations
+- `sys/cstdarg.hpp`     - compiler variadic ABI, including `va_copy` and `va_end`
 - `sys/vector.hpp`      - `vector<T>`
 - `sys/string.hpp`      - `string` (and basic `wstring`)
 - `sys/unordered_map.hpp` - chaining hash map
@@ -63,3 +67,25 @@ deleters are not supplied.
 Optional tests: configure with `-DZSTL_BUILD_TESTS=ON`, build and run CTest. The
 freestanding smoke target compiles memory, integer, array and vector/initializer-list
 headers with `-nostdinc -nostdinc++ -fno-exceptions -fno-rtti`.
+
+`inplace_vector` backports the capacity-fallible core from
+[C++26 P0843R14](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2024/p0843r14.html)
+to C++20. It supplies default/copy/move construction and assignment, `try_push_back`,
+`try_emplace_back`, `pop_back`, `clear`, element access, size/capacity and pointer
+iterators. The `try_*` functions return an element pointer or null on capacity
+exhaustion; failure neither constructs an element nor moves from the argument.
+Only live elements are constructed/destructed. Storage never allocates or moves
+when appending. Moves preserve the source size and leave moved-from elements
+alive. Zero capacity and move-only/non-default-constructible elements are supported.
+Trivially copyable elements retain trivial copying/destruction. This is a subset:
+range/initializer-list construction, middle insertion/erasure, comparison, swap,
+resize and constexpr element mutation are not implemented. Exception-throwing
+overflow APIs are intentionally omitted; this library does not throw exceptions.
+New C++20 headers do not change the C++17 baseline of existing headers.
+
+`lock_guard` follows the BasicLockable `lock()`/`unlock()` interface; `adopt_lock`
+requires the caller to already hold the lock. It does not implement OS scheduling,
+interrupt masking, mutex backends or semaphores. In freestanding mode, `cstring`
+implements string/search operations without system headers. The embedding runtime
+still defines C ABI `memcpy`, `memmove`, `memset` and `memcmp`, including any
+architecture-specific fast paths. Hosted `cstring` remains a host adapter.
